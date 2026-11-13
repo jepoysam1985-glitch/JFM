@@ -1,0 +1,63 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Add Android platform
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Icons, background-audio service at permissions
+        run: |
+          RES=android/app/src/main/res
+          find $RES -name 'ic_launcher*.webp' -delete
+          cp -r android-res/* $RES/
+          JAVA=android/app/src/main/java/com/jeiannefm/radio
+          mkdir -p $JAVA
+          cp android-src/*.java $JAVA/
+          python3 - <<'PY'
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p, encoding="utf-8").read()
+          perms = (
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n'
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n'
+              '    <uses-permission android:name="android.permission.WAKE_LOCK" />\n'
+              '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n'
+          )
+          svc = '        <service android:name=".AudioKeepAliveService" android:exported="false" android:foregroundServiceType="mediaPlayback" />\n'
+          s = s.replace("<application", perms + "\n    <application", 1)
+          s = s.replace("</application>", svc + "    </application>", 1)
+          open(p, "w", encoding="utf-8").write(s)
+          PY
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JeianneFM-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
