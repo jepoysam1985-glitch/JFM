@@ -1,0 +1,9 @@
+{
+  "appId": "com.jeiannefm.radio",
+  "appName": "Jeianne FM",
+  "webDir": "www",
+  "backgroundColor": "#05071a",
+  "server": {
+    "androidScheme": "https"
+  }
+}
